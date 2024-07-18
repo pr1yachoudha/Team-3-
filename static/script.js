@@ -44,7 +44,7 @@ function API_query (userMessage, chatBox) {
         let responseMessage = response.output;
         let botDiv = document.createElement('div');
         botDiv.className = 'chat-message bot-message';
-        botDiv.innerHTML = `<span class="bot-name">SwiftMate:</span> <span class="message">${responseMessage}</span>`;
+        botDiv.innerHTML = `<span class="bot-name">SWIFTMate:</span> <span class="message">${responseMessage}</span>`;
         chatBox.appendChild(botDiv);
 
         // Scroll to the bottom of the chat box
