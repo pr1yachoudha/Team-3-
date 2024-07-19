@@ -16,6 +16,7 @@ def chat():
 class OpenAI_API:
     def __init__(self, key, asst_id, vs_ids):
         self.client = OpenAI(api_key=key)
+        self.asst_id = asst_id
         self.assistant = self.client.beta.assistants.retrieve(asst_id)
         self.vs_ids = vs_ids
         self.thread = self.client.beta.threads.create(
@@ -40,11 +41,11 @@ class OpenAI_API:
         run = self.client.beta.threads.runs.create_and_poll(
             thread_id=self.thread.id,
             assistant_id=self.assistant.id,
-            instructions="Please help the user with their onboarding questions."
+            instructions="Please help the user with their onboarding questions. Base your responses based on the files you have access to. If a user asks about a setup task, provide a link to its setup page if possible."
         )
         if run.status == 'completed':
             messages = self.client.beta.threads.messages.list(thread_id=self.thread.id)
-            return re.sub(r"【.*?】", '', messages.data[0].content[0].text.value)
+            return re.sub(r'\n', '<br>', re.sub(r"【.*?】", '', messages.data[0].content[0].text.value))
         else:
             self.client.beta.threads.messages.delete(
                 message_id=message.id,
@@ -65,20 +66,19 @@ class OpenAI_API:
             role="user",
             content="Hello! How can I assist you today?"
         )
+        self.assistant = self.client.beta.assistants.retrieve(self.asst_id)
 
     def upload_file(self, filename, file_to_upload):
         file_to_upload = io.BytesIO(file_to_upload.read())
         file_to_upload.name = filename
-        resp = self.client.files.create(
-            file=file_to_upload,
-            purpose="assistants"
+        file_batch = self.client.beta.vector_stores.file_batches.upload_and_poll(
+            vector_store_id=self.vs_ids[0], files=[file_to_upload]
         )
-        print(resp.filename)
-        vector_store_file = self.client.beta.vector_stores.files.create(
-            vector_store_id=self.vs_ids[0],
-            file_id=resp.id
+        print(file_batch.status)
+        self.assistant = self.client.beta.assistants.update(
+            assistant_id=self.assistant.id,
+            tool_resources={"file_search": {"vector_store_ids": [self.vs_ids[0]]}},
         )
-        print(vector_store_file)
 
 
 f = open("keys.txt", "r")
