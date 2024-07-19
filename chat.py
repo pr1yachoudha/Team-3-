@@ -1,4 +1,5 @@
 import json
+import io
 from flask import Flask, jsonify, request, render_template, Response
 from openai import OpenAI
 import re
@@ -65,12 +66,25 @@ class OpenAI_API:
             content="Hello! How can I assist you today?"
         )
 
+    def upload_file(self, filename, file_to_upload):
+        file_to_upload = io.BytesIO(file_to_upload.read())
+        file_to_upload.name = filename
+        resp = self.client.files.create(
+            file=file_to_upload,
+            purpose="assistants"
+        )
+        print(resp.filename)
+        vector_store_file = self.client.beta.vector_stores.files.create(
+            vector_store_id=self.vs_ids[0],
+            file_id=resp.id
+        )
+        print(vector_store_file)
+
 
 f = open("keys.txt", "r")
 api_client = OpenAI_API(f.readline().strip(), f.readline().strip(), [f.readline().strip()])
 
 CORS(app)
-
 
 @app.before_request
 def handle_preflight():
@@ -82,9 +96,12 @@ def handle_preflight():
 
 @app.route('/assistant', methods=['POST'])
 def get_message():
-  request_data = request.get_json()
-  output = api_client.sendMessageAndGetResponse(request_data['message'])
-  print(output)
-  return jsonify({'output': fr'{output}'})
+    request_data = request.get_json()
+    output = api_client.sendMessageAndGetResponse(request_data['message'])
+    print(output)
+    return jsonify({'output': fr'{output}'})
 
-
+@app.route('/files', methods=['POST'])
+def send_file():
+    api_client.upload_file(request.form['filename'], request.files['uploadedFile'])
+    return jsonify(message="OK"), 200
